@@ -37,9 +37,25 @@ services:
       resources:
         limits:
           memory: 4G
+  
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: rag-jenkins
+
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+
+    volumes:
+      - jenkins_home:/var/jenkins_home
+
+    networks:
+      - rag-network
 
 volumes:
   qdrant_storage:
+  qdrant_data:
+  jenkins_home:
 
 networks:
   rag-network:
