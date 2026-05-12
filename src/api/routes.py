@@ -15,9 +15,8 @@ from src.utils.config import settings
 from src.utils.logger import get_logger
 from src.utils.timer import timing, timer, format_duration
 from src.api.models import (
-    QueryRequest, QueryResponse, IngestRequest, IngestResponse,
-    HealthResponse, StatsResponse, ResetRequest, ResetResponse,
-    QueryDebugResponse, ErrorResponse,
+    IngestRequest, IngestResponse,
+    HealthResponse, StatsResponse, ResetRequest, ResetResponse, ErrorResponse,
     AdvancedQueryRequest, AdvancedQueryResponse, AdvancedQueryDebugResponse,
     ClearHistoryResponse,
 )
@@ -26,12 +25,10 @@ from src.api.dependencies import (
     check_qdrant_health, check_groq_health, get_reranker_dep,
 )
 
-from src.retrieval.retriever import Retriever
 from src.retrieval.multi_retriever import MultiQueryRetriever
 from src.retrieval.query_generator import QueryGenerator
 from src.retrieval.reranker import Reranker
 from src.generation.llm_client import GroqLLMClient
-from src.generation.qa_chain import QAPipeline
 from src.generation.advanced_qa_chain import AdvancedQAPipeline
 from src.generation.prompt_templates import FALLBACK_RESPONSE
 from src.memory.conversation_memory import memory_store
@@ -109,69 +106,6 @@ async def ingest_file(
     except Exception as e:
         logger.error(f"❌ Ingestion failed for {file.filename}: {e}")
         raise HTTPException(status_code=500, detail=f"Ingestion error: {str(e)}")
-
-
-@router.post("/query", response_model=QueryResponse)
-@timing
-async def query_endpoint(
-    request: QueryRequest,
-    background_tasks: BackgroundTasks,
-    qdrant_client: QdrantClient = Depends(get_qdrant_client_dep),
-    embedding_model: SentenceTransformer = Depends(get_embedding_model_dep),
-    groq_client: Groq = Depends(get_groq_client_dep)
-):
-    logger.info(f"🎯 Query received: '{request.question[:60]}...'")
-
-    try:
-        retriever = Retriever(qdrant_client, embedding_model)
-        llm_client = GroqLLMClient(groq_client)
-        pipeline = QAPipeline(retriever, llm_client)
-
-        result = pipeline.process(request.question)
-
-        return QueryResponse(
-            question=request.question,
-            answer=result["answer"],
-            processing_time_seconds=result["processing_time_seconds"],
-            chunks_used=result["chunks_used"]
-        )
-
-    except Exception as e:
-        logger.error(f"❌ Query processing failed: {e}")
-        return QueryResponse(
-            question=request.question,
-            answer="I'm experiencing technical difficulties. Please try again.",
-            processing_time_seconds=0.0,
-            chunks_used=0
-        )
-
-
-@router.post("/query_debug", response_model=QueryDebugResponse)
-@timing
-async def query_debug_endpoint(
-    request: QueryRequest,
-    qdrant_client: QdrantClient = Depends(get_qdrant_client_dep),
-    embedding_model: SentenceTransformer = Depends(get_embedding_model_dep),
-    groq_client: Groq = Depends(get_groq_client_dep)
-):
-    try:
-        retriever = Retriever(qdrant_client, embedding_model)
-        llm_client = GroqLLMClient(groq_client)
-        pipeline = QAPipeline(retriever, llm_client)
-
-        result = pipeline.process(request.question)
-
-        return QueryDebugResponse(
-            question=request.question,
-            answer=result["answer"],
-            processing_time_seconds=result["processing_time_seconds"],
-            chunks_used=result["chunks_used"],
-            retrieved_contexts=result["contexts"]
-        )
-
-    except Exception as e:
-        logger.error(f"❌ Debug query failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Debug query error: {str(e)}")
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -255,7 +189,7 @@ async def reset_database(
 
 @router.post("/advanced_query", response_model=AdvancedQueryResponse)
 @timing
-async def advanced_query_endpoint(
+def advanced_query_endpoint(
     request: AdvancedQueryRequest,
     qdrant_client: QdrantClient = Depends(get_qdrant_client_dep),
     embedding_model: SentenceTransformer = Depends(get_embedding_model_dep),
@@ -316,7 +250,7 @@ async def advanced_query_endpoint(
 
 @router.post("/advanced_query_debug", response_model=AdvancedQueryDebugResponse)
 @timing
-async def advanced_query_debug_endpoint(
+def advanced_query_debug_endpoint(
     request: AdvancedQueryRequest,
     qdrant_client: QdrantClient = Depends(get_qdrant_client_dep),
     embedding_model: SentenceTransformer = Depends(get_embedding_model_dep),

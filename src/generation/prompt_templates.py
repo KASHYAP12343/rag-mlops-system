@@ -130,35 +130,3 @@ End with a follow-up question to continue the troubleshooting session."""
 
     return history_block + queries_block + context_block + question_block
 
-
-# Keep the old build_prompt for backward compatibility with the simple /query endpoint
-def build_prompt(question: str, contexts: List[Dict]) -> str:
-    """
-    Legacy prompt builder for the simple (non-advanced) /query endpoint.
-    Kept for backward compatibility — does not include history or multi-query info.
-    """
-    context_block = "\n\n---\n\n".join([
-        f"[Source: {ctx['source']}]\n{ctx['text']}"
-        for ctx in contexts
-    ])
-
-    return f"""📖 CONTEXT INFORMATION:
-{context_block}
-
-❓ USER QUESTION: {question}
-
-🛠️ Provide a step-by-step troubleshooting answer based strictly on the context above:"""
-
-
-# Legacy system prompt for the simple /query endpoint
-SYSTEM_PROMPT = """You are an expert laptop troubleshooting technician with years of field experience.
-Your task is to provide clear, actionable, step-by-step solutions based STRICTLY on the provided context.
-
-🔒 STRICT RULES:
-1. Use ONLY the provided context. Do NOT invent steps or rely on outside knowledge.
-2. If the context doesn't cover the issue, respond exactly with: "The uploaded manuals don't cover this specific issue. Please check your laptop model's official support documentation."
-3. Always start with safety checks (power cable, battery removal, etc.) if mentioned in context.
-4. Format answers as numbered steps when applicable.
-5. Keep responses concise, professional, and easy to follow for non-technical users.
-6. Cite source manuals using [Source: filename] when helpful.
-"""

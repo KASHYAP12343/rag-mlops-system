@@ -98,43 +98,16 @@ class MultiQueryRetriever:
         top_k: int,
     ) -> List[List[Dict]]:
         """
-        Execute all searches concurrently via asyncio.
+        Execute all searches concurrently using a thread pool.
 
         Returns a list-of-lists: one inner list per query.
         """
-        async def _async_search_all():
-            loop = asyncio.get_event_loop()
-            tasks = [
-                loop.run_in_executor(
-                    None,               # default ThreadPoolExecutor
-                    self._retriever.search,
-                    query,
-                    top_k,
-                )
-                for query in queries
-            ]
-            return await asyncio.gather(*tasks)
-
-        # If we are already inside an event loop (FastAPI async context),
-        # use run_in_executor directly; otherwise spin up a new loop.
-        try:
-            loop = asyncio.get_running_loop()
-            # We're in an async context — run synchronously in threads
-            import concurrent.futures
-            futures = [
-                loop.run_in_executor(None, self._retriever.search, q, top_k)
-                for q in queries
-            ]
-            # This is called from inside an async route via pipeline.process()
-            # which is itself a normal sync method, so we use a thread pool trick:
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                results = list(executor.map(
-                    lambda q: self._retriever.search(q, top_k), queries
-                ))
-            return results
-        except RuntimeError:
-            # No running event loop — create one
-            return asyncio.run(_async_search_all())
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            results = list(executor.map(
+                lambda q: self._retriever.search(q, top_k), queries
+            ))
+        return results
 
     def _union_and_deduplicate(self, all_results: List[List[Dict]]) -> List[Dict]:
         """

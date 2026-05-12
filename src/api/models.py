@@ -20,28 +20,7 @@ from datetime import datetime
 
 # === Request Models (What clients send TO our API) ===
 
-class QueryRequest(BaseModel):
-    """
-    Request body for POST /query endpoint.
 
-    Example JSON:
-    {
-        "question": "My laptop won't turn on, what should I check?"
-    }
-    """
-    question: str = Field(
-        ...,  # ... means this field is required
-        min_length=1,
-        max_length=500,
-        description="The user's troubleshooting question",
-        examples=["My laptop battery is not charging", "Screen is black but power light is on"]
-    )
-
-    @field_validator("question")
-    @classmethod
-    def strip_whitespace(cls, v: str) -> str:
-        """Remove leading/trailing spaces from question"""
-        return v.strip()
 
 
 class AdvancedQueryRequest(BaseModel):
@@ -117,32 +96,7 @@ class ResetRequest(BaseModel):
 
 # === Response Models (What our API sends BACK to clients) ===
 
-class QueryResponse(BaseModel):
-    """
-    Response for POST /query endpoint.
-    
-    Example:
-    {
-        "question": "My laptop battery is not charging",
-        "answer": "1. Check AC adapter connection...\n2. Reseat battery...",
-        "processing_time_seconds": 2.34,
-        "chunks_used": 3
-    }
-    """
-    question: str = Field(description="Echo of the user's question")
-    answer: str = Field(description="LLM-generated troubleshooting answer")
-    processing_time_seconds: float = Field(
-        description="Total time to process the request (retrieval + generation)",
-        ge=0.0  # Must be >= 0
-    )
-    chunks_used: int = Field(
-        default=0,
-        description="Number of knowledge chunks used to generate answer"
-    )
-    timestamp: datetime = Field(
-        default_factory=datetime.now,
-        description="When this response was generated"
-    )
+
 
 
 class IngestResponse(BaseModel):
@@ -303,25 +257,7 @@ class ClearHistoryResponse(BaseModel):
     message: str
 
 
-class QueryDebugResponse(QueryResponse):
-    """
-    Extended response for POST /query_debug endpoint.
-    Includes retrieved contexts for debugging/inspection.
-    
-    Inherits all fields from QueryResponse plus:
-    """
-    retrieved_contexts: List[dict] = Field(
-        default_factory=list,
-        description="List of chunks used to generate the answer"
-    )
-    """
-    Each context item looks like:
-    {
-        "text": "## Battery Issues\n1. Check AC adapter...",
-        "score": 0.89,
-        "source": "dell_battery_guide.txt"
-    }
-    """
+
 
 
 # === Error Response Model (Standardized error format) ===
