@@ -1,7 +1,13 @@
 pipeline {
+
     agent any
 
+    environment {
+        GROQ_API_KEY = "dummy-ci-key"
+    }
+
     stages {
+
         stage('Install Dependencies') {
             steps {
                 sh '''
