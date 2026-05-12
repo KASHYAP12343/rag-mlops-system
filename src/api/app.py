@@ -1,6 +1,7 @@
 # src/api/app.py
 
 from fastapi import FastAPI, Request
+from fastapi import status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
@@ -115,9 +116,89 @@ async def root():
     }
 
 
-@app.get("/health")
-async def root_health():
-    return {"status": "ok"}
+# -----------------------------
+# Liveness Probe
+# -----------------------------
+@app.get(
+    "/health",
+    tags=["Monitoring"],
+    status_code=status.HTTP_200_OK
+)
+async def health_check():
+    """
+    Lightweight liveness probe.
 
+    Used by:
+    - Docker healthcheck
+    - Kubernetes livenessProbe
+    """
+    return {
+        "status": "healthy",
+        "service": "rag-api"
+    }
+
+
+# -----------------------------
+# Readiness Probe
+# -----------------------------
+@app.get(
+    "/ready",
+    tags=["Monitoring"],
+    status_code=status.HTTP_200_OK
+)
+async def readiness_check():
+    """
+    Readiness probe.
+
+    Verifies critical dependencies are available before
+    receiving traffic from Kubernetes.
+    """
+
+    dependencies = {
+        "embedding_model": False,
+        "qdrant": False,
+        "groq_client": False
+    }
+
+    try:
+        from src.api.dependencies import (
+            get_embedding_model,
+            get_qdrant_client,
+            get_groq_client
+        )
+
+        # Validate embedding model
+        embedding_model = get_embedding_model()
+        if embedding_model:
+            dependencies["embedding_model"] = True
+
+        # Validate Qdrant connection
+        qdrant_client = get_qdrant_client()
+        qdrant_client.get_collections()
+        dependencies["qdrant"] = True
+
+        # Validate Groq client
+        groq_client = get_groq_client()
+        if groq_client:
+            dependencies["groq_client"] = True
+
+        all_ready = all(dependencies.values())
+
+        return {
+            "status": "ready" if all_ready else "not_ready",
+            "dependencies": dependencies
+        }
+
+    except Exception as e:
+        logger.exception("Readiness check failed")
+
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "status": "not_ready",
+                "dependencies": dependencies,
+                "error": str(e)
+            }
+        )
 
 logger.info("✓ FastAPI app initialized | Docs: http://localhost:8000/docs")
