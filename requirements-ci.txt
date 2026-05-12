@@ -4,3 +4,7 @@ pytest
 httpx
 python-json-logger
 loguru
+pydantic-settings
+qdrant-client
+tqdm
+python-multipart
