@@ -39,9 +39,10 @@ services:
           memory: 4G
   
   jenkins:
-    image: jenkins/jenkins:lts
+    build:
+      context: .
+      dockerfile: jenkins/Dockerfile
     container_name: rag-jenkins
-
     ports:
       - "8080:8080"
       - "50000:50000"
