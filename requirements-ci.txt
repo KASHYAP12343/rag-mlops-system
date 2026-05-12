@@ -8,3 +8,4 @@ pydantic-settings
 qdrant-client
 tqdm
 python-multipart
+sentence-transformers
