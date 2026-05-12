@@ -16,7 +16,8 @@ Features:
 import sys
 from pathlib import Path
 from loguru import logger as loguru_logger
-
+import logging
+from pythonjsonlogger import jsonlogger
 
 def setup_logger(
     log_level: str = "INFO",
@@ -42,30 +43,30 @@ def setup_logger(
     log_path = Path(log_file)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     
-    # Format for console output (colorful and readable)
-    console_format = (
-        "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-        "<level>{level: <8}</level> | "
-        "<cyan>{name}:{function}:{line}</cyan> - "
-        "<level>{message}</level>"
+    # Configure jsonlogger from python-json-logger for standard output (ELK compatible)
+    log_handler = logging.StreamHandler(sys.stdout)
+    formatter = jsonlogger.JsonFormatter(
+        "%(asctime)s %(levelname)s %(name)s %(message)s"
+    )
+    log_handler.setFormatter(formatter)
+    
+    # We add the python logging handler to loguru.
+    # Loguru automatically passes formatted `{message}` down to standard logging
+    # to avoid format string errors.
+    loguru_logger.add(
+        log_handler,
+        format="{message}",
+        level=log_level,
+        backtrace=True,
+        diagnose=True,
     )
     
-    # Format for file output (more detailed, no colors)
+    # Format for file output (non-JSON, standard detailed format)
     file_format = (
         "{time:YYYY-MM-DD HH:mm:ss} | "
         "{level: <8} | "
         "{name}:{function}:{line} | "
         "{message}"
-    )
-    
-    # Add console handler - shows logs in terminal
-    loguru_logger.add(
-        sys.stdout,
-        format=console_format,
-        level=log_level,
-        colorize=True,  # Enable colors in terminal
-        backtrace=True,  # Show variable values in tracebacks (debugging)
-        diagnose=True,   # Show local variables in errors (debugging)
     )
     
     # Add file handler - saves logs to disk
@@ -105,4 +106,4 @@ def get_logger(name: str = None):
 
 
 # Create a default logger instance for direct imports
-logger = get_logger()
+logger = get_logger()

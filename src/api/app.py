@@ -71,12 +71,25 @@ app.add_middleware(
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
+    """
+    Structured request logging middleware.
+    """
+
     import time
     start_time = time.time()
-    logger.info("→ {} {}", request.method, request.url.path)
+
     response = await call_next(request)
-    duration = time.time() - start_time
-    logger.info("← {} {} | {} | {:.2f}s", request.method, request.url.path, response.status_code, duration)
+
+    process_time = round((time.time() - start_time) * 1000, 2)
+
+    logger.bind(
+        method=request.method,
+        path=request.url.path,
+        status_code=response.status_code,
+        latency_ms=process_time,
+        client=request.client.host if request.client else None
+    ).info("request_processed")
+
     return response
 
 

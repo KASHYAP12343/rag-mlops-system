@@ -42,6 +42,8 @@ tqdm==4.66.4
 numpy==1.26.3
 aiofiles==23.2.0
 
+python-json-logger==4.1.0
+
 # === Optional: Testing & Debugging ===
 # pytest==8.1.1
 # pytest-asyncio==0.23.6
