@@ -56,3 +56,23 @@ Thumbs.db
 
 steps.txt
 Project_Flow.md
+
+# === Security — Ansible Vault ===
+# The vault.yml itself IS committed (encrypted), but the password file must not be
+.vault_pass
+*.vault_pass
+ansible/.vault_pass
+
+# === Security — Trivy scan reports (keep locally, not in Git) ===
+trivy-report/
+
+# === Kubernetes rendered secrets ===
+# Never commit files with real base64-encoded secrets
+k8s/secret-rendered.yaml
+
+# === Jenkins ===
+jenkins_home/
+
+# === Docker ===
+*.tar
+backend.zip
