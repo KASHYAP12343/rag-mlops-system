@@ -32,6 +32,8 @@ pipeline {
                 . venv/bin/activate
                 pip install --upgrade pip
                 pip install -r requirements-ci.txt
+                # Install ansible into the venv so ansible-playbook is on PATH
+                pip install --quiet ansible
                 '''
             }
         }
@@ -157,6 +159,7 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh '''
+                . venv/bin/activate
                 echo "Triggering Ansible deployment for image tag: ${IMAGE_TAG}"
                 ansible-playbook ansible/deploy.yml \
                     -i ansible/inventory/hosts.yml \
