@@ -85,6 +85,8 @@ services:
     environment:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
       - DOCKER_BUILDKIT=1   # Enable BuildKit for faster, cached Docker builds
+    group_add:
+      - "126" # GID of the docker group on the host to allow socket access
     deploy:
       resources:
         limits:
