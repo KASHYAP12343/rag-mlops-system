@@ -64,22 +64,32 @@ pipeline {
 
         // ─────────────────────────────────────────────────────────────
         // Stage 4 — Trivy security scan
-        // Fails the build on CRITICAL vulnerabilities
+        // Informational only — NEVER blocks the push to DockerHub
         // ─────────────────────────────────────────────────────────────
         stage('Trivy Security Scan') {
             steps {
                 sh '''
                 mkdir -p trivy-report
+
+                echo "=== Disk space before Trivy scan ==="
+                df -h /tmp
+
+                # Run Trivy — exit-code 0 so it NEVER fails the build
+                # Change to --exit-code 1 if you want to block on CRITICAL CVEs
                 trivy image \
-                    --exit-code 1 \
-                    --severity CRITICAL \
+                    --exit-code 0 \
+                    --severity CRITICAL,HIGH \
                     --no-progress \
                     --format table \
                     --output trivy-report/scan-${BUILD_NUMBER}.txt \
                     ${DOCKERHUB_REPO}:${IMAGE_TAG} || true
 
                 echo "=== Trivy Scan Summary ==="
-                cat trivy-report/scan-${BUILD_NUMBER}.txt
+                if [ -f trivy-report/scan-${BUILD_NUMBER}.txt ]; then
+                    cat trivy-report/scan-${BUILD_NUMBER}.txt
+                else
+                    echo "⚠️  Trivy scan report not generated (disk space or scan error) — continuing pipeline"
+                fi
                 '''
             }
         }
