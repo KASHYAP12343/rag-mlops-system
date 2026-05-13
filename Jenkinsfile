@@ -165,6 +165,7 @@ pipeline {
             steps {
                 sh '''
                 . venv/bin/activate
+                export KUBECONFIG=/var/jenkins_home/.kube/config
                 echo "Triggering Ansible deployment for image tag: ${IMAGE_TAG}"
                 ansible-playbook ansible/deploy.yml \
                     -i ansible/inventory/hosts.yml \

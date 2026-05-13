@@ -77,6 +77,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock   # Docker-in-Docker (lite)
       - .:/workspace                                  # mount repo for pipelines
       - ${HOME}/.vault_pass:/var/jenkins_home/.vault_pass:ro  # Ansible Vault password
+      - ${HOME}/.kube:/var/jenkins_home/.kube:ro              # kubectl config
+      - ${HOME}/.minikube:/home/mayank/.minikube:ro           # minikube TLS certs (paths must match kubeconfig)
     networks:
       - rag-network
     environment:
