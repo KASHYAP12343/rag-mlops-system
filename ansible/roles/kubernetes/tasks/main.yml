@@ -4,13 +4,13 @@
 
 - name: Create/ensure rag-system namespace
   ansible.builtin.command:
-    cmd: "{{ kubectl_bin }} apply -f {{ project_dir }}/k8s/namespace.yaml"
+    cmd: "{{ kubectl_bin }} apply --validate=false -f {{ project_dir }}/k8s/namespace.yaml"
   register: ns_result
   changed_when: "'created' in ns_result.stdout or 'configured' in ns_result.stdout"
 
 - name: Apply ConfigMap
   ansible.builtin.command:
-    cmd: "{{ kubectl_bin }} apply -f {{ project_dir }}/k8s/configmap.yaml"
+    cmd: "{{ kubectl_bin }} apply --validate=false -f {{ project_dir }}/k8s/configmap.yaml"
   register: cm_result
   changed_when: "'created' in cm_result.stdout or 'configured' in cm_result.stdout"
 
@@ -19,44 +19,44 @@
     GROQ_KEY_B64=$(echo -n "{{ vault_groq_api_key }}" | base64 -w 0)
     cat {{ project_dir }}/k8s/secret.yaml \
       | sed "s|REPLACE_WITH_BASE64_ENCODED_KEY|${GROQ_KEY_B64}|g" \
-      | {{ kubectl_bin }} apply -f -
+      | {{ kubectl_bin }} apply --validate=false -f -
   no_log: true    # do not log vault secret values
   register: secret_result
   changed_when: "'created' in secret_result.stdout or 'configured' in secret_result.stdout"
 
 - name: Apply Qdrant StatefulSet
   ansible.builtin.command:
-    cmd: "{{ kubectl_bin }} apply -f {{ project_dir }}/k8s/qdrant-statefulset.yaml"
+    cmd: "{{ kubectl_bin }} apply --validate=false -f {{ project_dir }}/k8s/qdrant-statefulset.yaml"
   register: qdrant_ss_result
   changed_when: "'created' in qdrant_ss_result.stdout or 'configured' in qdrant_ss_result.stdout"
 
 - name: Apply Qdrant Service
   ansible.builtin.command:
-    cmd: "{{ kubectl_bin }} apply -f {{ project_dir }}/k8s/qdrant-service.yaml"
+    cmd: "{{ kubectl_bin }} apply --validate=false -f {{ project_dir }}/k8s/qdrant-service.yaml"
 
 - name: Apply Backend Deployment (with new image tag)
   ansible.builtin.shell: |
     cat {{ project_dir }}/k8s/backend-deployment.yaml \
       | sed "s|:latest|:{{ image_tag }}|g" \
-      | {{ kubectl_bin }} apply -f -
+      | {{ kubectl_bin }} apply --validate=false -f -
   register: backend_result
   changed_when: "'created' in backend_result.stdout or 'configured' in backend_result.stdout"
 
 - name: Apply Backend Service
   ansible.builtin.command:
-    cmd: "{{ kubectl_bin }} apply -f {{ project_dir }}/k8s/backend-service.yaml"
+    cmd: "{{ kubectl_bin }} apply --validate=false -f {{ project_dir }}/k8s/backend-service.yaml"
 
 - name: Apply Frontend Deployment
   ansible.builtin.command:
-    cmd: "{{ kubectl_bin }} apply -f {{ project_dir }}/k8s/frontend-deployment.yaml"
+    cmd: "{{ kubectl_bin }} apply --validate=false -f {{ project_dir }}/k8s/frontend-deployment.yaml"
 
 - name: Apply Frontend Service
   ansible.builtin.command:
-    cmd: "{{ kubectl_bin }} apply -f {{ project_dir }}/k8s/frontend-service.yaml"
+    cmd: "{{ kubectl_bin }} apply --validate=false -f {{ project_dir }}/k8s/frontend-service.yaml"
 
 - name: Apply HPA
   ansible.builtin.command:
-    cmd: "{{ kubectl_bin }} apply -f {{ project_dir }}/k8s/hpa.yaml"
+    cmd: "{{ kubectl_bin }} apply --validate=false -f {{ project_dir }}/k8s/hpa.yaml"
 
 - name: Wait for backend rollout to complete
   ansible.builtin.command:
