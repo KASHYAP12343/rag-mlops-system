@@ -34,6 +34,11 @@ pipeline {
                 pip install -r requirements-ci.txt
                 # Install ansible + docker SDK into the venv for the Deploy stage
                 pip install --quiet ansible docker requests
+                
+                # Download and install kubectl into venv/bin
+                curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+                chmod +x kubectl
+                mv kubectl venv/bin/
                 '''
             }
         }
