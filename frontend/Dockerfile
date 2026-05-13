@@ -6,7 +6,7 @@ WORKDIR /app
 
 # Install dependencies first (cached layer)
 COPY package.json package-lock.json ./
-RUN npm ci --silent
+RUN npm ci --fetch-retries=5 --fetch-retry-mintimeout=20000
 
 # Copy source and build
 COPY . .
