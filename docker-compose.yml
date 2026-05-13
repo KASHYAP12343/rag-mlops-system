@@ -78,6 +78,8 @@ services:
       - rag-network
     environment:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+    group_add:
+      - "126"    # host docker group GID — allows jenkins user to access /var/run/docker.sock
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Elasticsearch — Log Storage
