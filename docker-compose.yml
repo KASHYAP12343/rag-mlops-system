@@ -81,6 +81,7 @@ services:
       - ${HOME}/.minikube:/home/mayank/.minikube:ro           # minikube TLS certs (paths must match kubeconfig)
     networks:
       - rag-network
+      - minikube
     environment:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
       - DOCKER_BUILDKIT=1   # Enable BuildKit for faster, cached Docker builds
@@ -183,3 +184,5 @@ volumes:
 networks:
   rag-network:
     driver: bridge
+  minikube:
+    external: true
