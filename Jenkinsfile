@@ -32,8 +32,8 @@ pipeline {
                 . venv/bin/activate
                 pip install --upgrade pip
                 pip install -r requirements-ci.txt
-                # Install ansible into the venv so ansible-playbook is on PATH
-                pip install --quiet ansible
+                # Install ansible + docker SDK into the venv for the Deploy stage
+                pip install --quiet ansible docker requests
                 '''
             }
         }
