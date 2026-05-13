@@ -1,3 +1,8 @@
+# requirements-ci.txt
+# Lightweight CI-only dependencies — NO PyTorch, NO heavy ML libs
+# Heavy deps (sentence-transformers, qdrant-client) are mocked in conftest.py
+# Target: Install stage < 30 seconds
+
 fastapi
 uvicorn
 pytest
@@ -5,7 +10,5 @@ httpx
 python-json-logger
 loguru
 pydantic-settings
-qdrant-client
-tqdm
 python-multipart
-sentence-transformers
+anyio[asyncio]

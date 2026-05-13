@@ -49,11 +49,13 @@ pipeline {
 
         // ─────────────────────────────────────────────────────────────
         // Stage 3 — Build Docker image
+        // DOCKER_BUILDKIT=1 enables advanced caching — model layer
+        // is cached separately from pip install layer
         // ─────────────────────────────────────────────────────────────
         stage('Build Docker Image') {
             steps {
                 sh '''
-                docker build \
+                DOCKER_BUILDKIT=1 docker build \
                     --build-arg BUILD_NUMBER=${BUILD_NUMBER} \
                     -t ${DOCKERHUB_REPO}:${IMAGE_TAG} \
                     -t ${DOCKERHUB_REPO}:latest \

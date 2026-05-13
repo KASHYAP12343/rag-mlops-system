@@ -9,11 +9,13 @@ __pycache__/
 .venv/
 venv/
 *.egg
+.pytest_cache/
 
 # Environment & Secrets
 .env
 *.key
 *.pem
+.vault_pass
 
 # Logs & Local Data
 logs/
@@ -24,6 +26,17 @@ qdrant_storage/
 Dockerfile
 docker-compose.yml
 .dockerignore
+
+# DevOps directories — not needed in production image
+jenkins/
+fluent-bit/
+k8s/
+ansible/
+frontend/
+
+# CI artifacts
+trivy-report/
+*.txt.bak
 
 # OS
 .DS_Store

@@ -73,13 +73,14 @@ services:
       - jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock   # Docker-in-Docker (lite)
       - .:/workspace                                  # mount repo for pipelines
-      - /home/mayank/.vault_pass:/var/jenkins_home/.vault_pass:ro  # Ansible Vault password
+      - ${HOME}/.vault_pass:/var/jenkins_home/.vault_pass:ro  # Ansible Vault password
     networks:
       - rag-network
     environment:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
-    group_add:
-      - "126"    # host docker group GID — allows jenkins user to access /var/run/docker.sock
+      - DOCKER_BUILDKIT=1   # Enable BuildKit for faster, cached Docker builds
+    # group_add is intentionally omitted — docker socket access is handled
+    # by the jenkins/Dockerfile which grants root access to /var/run/docker.sock
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Elasticsearch — Log Storage

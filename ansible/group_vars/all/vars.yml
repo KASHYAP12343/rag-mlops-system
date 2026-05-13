@@ -14,7 +14,8 @@ frontend_image: "{{ dockerhub_username }}/rag-mlops-frontend"
 image_tag: latest
 
 # ── Project Path ─────────────────────────────────────────────────────────────
-project_dir: /media/mayank/Data/SPE_MLOPS/Project
+# Uses playbook_dir so this works from any machine / Jenkins workspace
+project_dir: "{{ playbook_dir }}/.."
 
 # ── Kubernetes Settings ───────────────────────────────────────────────────────
 kubectl_bin: kubectl

@@ -61,22 +61,16 @@ def setup_logger(
         diagnose=True,
     )
     
-    # Format for file output (non-JSON, standard detailed format)
-    file_format = (
-        "{time:YYYY-MM-DD HH:mm:ss} | "
-        "{level: <8} | "
-        "{name}:{function}:{line} | "
-        "{message}"
-    )
-    
-    # Add file handler - saves logs to disk
+    # Add file handler — serialize=True writes each line as valid JSON
+    # Required by Fluent Bit's 'json' parser in fluent-bit.conf
+    # Without this, Fluent Bit silently drops every log line → Kibana stays empty
     loguru_logger.add(
         log_file,
-        format=file_format,
+        serialize=True,          # ← Each log line = one JSON object
         level=log_level,
-        rotation="10 MB",  # Create new file when current reaches 10MB
-        retention=f"{retention_days} days",  # Auto-delete old logs
-        compression="zip",  # Compress old logs to save space
+        rotation="10 MB",
+        retention=f"{retention_days} days",
+        compression="zip",
         backtrace=True,
         diagnose=True,
     )
