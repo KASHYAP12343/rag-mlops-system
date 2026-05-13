@@ -9,9 +9,10 @@ pipeline {
     }
 
     environment {
-        DOCKERHUB_REPO  = "mayank2101/rag-mlops"
-        IMAGE_TAG       = "${env.BUILD_NUMBER}"
-        GROQ_API_KEY    = "dummy-ci-key"
+        DOCKERHUB_REPO   = "mayank2101/rag-mlops"
+        FRONTEND_REPO    = "mayank2101/rag-mlops-frontend"
+        IMAGE_TAG        = "${env.BUILD_NUMBER}"
+        GROQ_API_KEY     = "dummy-ci-key"
     }
 
     // Auto-trigger on every GitHub push via webhook
@@ -71,7 +72,22 @@ pipeline {
         }
 
         // ─────────────────────────────────────────────────────────────
-        // Stage 4 — Trivy security scan
+        // Stage 4 — Build Frontend Docker image
+        // Multi-stage build: Node 20 compiles Vite/React → nginx serves
+        // ─────────────────────────────────────────────────────────────
+        stage('Build Frontend Image') {
+            steps {
+                sh '''
+                DOCKER_BUILDKIT=0 docker build \
+                    -t ${FRONTEND_REPO}:${IMAGE_TAG} \
+                    -t ${FRONTEND_REPO}:latest \
+                    ./frontend
+                '''
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Stage 5 — Trivy security scan (backend image)
         // Informational only — NEVER blocks the push to DockerHub
         // ─────────────────────────────────────────────────────────────
         stage('Trivy Security Scan') {
@@ -103,7 +119,7 @@ pipeline {
         }
 
         // ─────────────────────────────────────────────────────────────
-        // Stage 5 — Push to DockerHub
+        // Stage 6 — Push both images to DockerHub
         // Requires Jenkins credential ID: dockerhub-credentials
         // ─────────────────────────────────────────────────────────────
         stage('Push to DockerHub') {
@@ -117,8 +133,15 @@ pipeline {
                 ]) {
                     sh '''
                     echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+
+                    // Push backend image
                     docker push ${DOCKERHUB_REPO}:${IMAGE_TAG}
                     docker push ${DOCKERHUB_REPO}:latest
+
+                    // Push frontend image
+                    docker push ${FRONTEND_REPO}:${IMAGE_TAG}
+                    docker push ${FRONTEND_REPO}:latest
+
                     docker logout
                     '''
                 }
@@ -126,8 +149,10 @@ pipeline {
         }
 
         // ─────────────────────────────────────────────────────────────
-        // Stage 6 — Deploy via Ansible
-        // Triggers the Ansible deploy playbook after image is pushed
+        // Stage 7 — Deploy via Ansible
+        // Jenkins calls ansible-playbook → kubernetes role applies all
+        // K8s manifests (backend + frontend deployments, HPA, secrets).
+        // K8s is NEVER touched directly from Jenkins — Ansible owns it.
         // ─────────────────────────────────────────────────────────────
         stage('Deploy') {
             steps {
@@ -135,9 +160,8 @@ pipeline {
                 echo "Triggering Ansible deployment for image tag: ${IMAGE_TAG}"
                 ansible-playbook ansible/deploy.yml \
                     -i ansible/inventory/hosts.yml \
-                    --extra-vars "image_tag=${IMAGE_TAG}" \
-                    --vault-password-file /var/jenkins_home/.vault_pass \
-                    || echo "Ansible not configured yet — skipping deploy"
+                    --extra-vars "image_tag=${IMAGE_TAG} frontend_tag=${IMAGE_TAG}" \
+                    --vault-password-file /var/jenkins_home/.vault_pass
                 '''
             }
         }
