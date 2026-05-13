@@ -1,0 +1,22 @@
+---
+# ansible/deploy.yml
+# Lightweight deployment-only playbook.
+# Assumes infrastructure is already up — just pushes a new image version.
+#
+# Usage:
+#   ansible-playbook ansible/deploy.yml \
+#       -i ansible/inventory/hosts.yml \
+#       --ask-vault-pass \
+#       --extra-vars "image_tag=42"
+
+- name: Deploy new RAG MLOps image to Kubernetes
+  hosts: all
+  gather_facts: false
+
+  vars:
+    image_tag: "{{ image_tag | default('latest') }}"
+
+  roles:
+    - role: docker          # pull the new image
+    - role: kubernetes      # apply manifests with updated tag
+    - role: rag_app         # verify deployment health

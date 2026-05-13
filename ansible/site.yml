@@ -1,0 +1,20 @@
+---
+# ansible/site.yml
+# Master playbook — runs ALL roles in order.
+# Use for full environment provisioning from scratch.
+#
+# Usage:
+#   ansible-playbook ansible/site.yml \
+#       -i ansible/inventory/hosts.yml \
+#       --ask-vault-pass
+
+- name: Full RAG MLOps Deployment
+  hosts: all
+  gather_facts: true
+
+  roles:
+    - role: common          # system package baseline
+    - role: docker          # pull Docker images
+    - role: monitoring      # start ELK + Fluent Bit
+    - role: kubernetes      # apply k8s manifests + wait for rollout
+    - role: rag_app         # verify health + readiness

@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-backend
+  namespace: rag-system
+  labels:
+    app: rag-api
+    version: "1.0"
+    project: rag-mlops
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rag-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1          # allow 1 extra pod during update
+      maxUnavailable: 0    # zero downtime — never kill before new pod is ready
+  template:
+    metadata:
+      labels:
+        app: rag-api
+        version: "1.0"
+    spec:
+      containers:
+        - name: rag-api
+          image: mayank2101/rag-mlops:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              name: http
+          # ── Resource limits ───────────────────────────────────────────────
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+          # ── Environment from ConfigMap ────────────────────────────────────
+          envFrom:
+            - configMapRef:
+                name: rag-config
+          # ── Sensitive env from Secret ─────────────────────────────────────
+          env:
+            - name: GROQ_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: rag-secrets
+                  key: GROQ_API_KEY
+          # ── Liveness probe — restart if API becomes unresponsive ──────────
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 40
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # ── Readiness probe — stop traffic if dependencies are down ───────
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8000
+            initialDelaySeconds: 45
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # ── Log volume ────────────────────────────────────────────────────
+          volumeMounts:
+            - name: log-volume
+              mountPath: /app/logs
+      volumes:
+        - name: log-volume
+          emptyDir: {}

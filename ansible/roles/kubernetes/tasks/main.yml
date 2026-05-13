@@ -1,0 +1,79 @@
+---
+# ansible/roles/kubernetes/tasks/main.yml
+# Applies all Kubernetes manifests and waits for the rollout to complete.
+
+- name: Create/ensure rag-system namespace
+  ansible.builtin.command:
+    cmd: "{{ kubectl_bin }} apply -f {{ project_dir }}/k8s/namespace.yaml"
+  register: ns_result
+  changed_when: "'created' in ns_result.stdout or 'configured' in ns_result.stdout"
+
+- name: Apply ConfigMap
+  ansible.builtin.command:
+    cmd: "{{ kubectl_bin }} apply -f {{ project_dir }}/k8s/configmap.yaml"
+  register: cm_result
+  changed_when: "'created' in cm_result.stdout or 'configured' in cm_result.stdout"
+
+- name: Render and apply Kubernetes Secret (injects vault variable)
+  ansible.builtin.shell: |
+    GROQ_KEY_B64=$(echo -n "{{ vault_groq_api_key }}" | base64 -w 0)
+    cat {{ project_dir }}/k8s/secret.yaml \
+      | sed "s|REPLACE_WITH_BASE64_ENCODED_KEY|${GROQ_KEY_B64}|g" \
+      | {{ kubectl_bin }} apply -f -
+  no_log: true    # do not log vault secret values
+  register: secret_result
+  changed_when: "'created' in secret_result.stdout or 'configured' in secret_result.stdout"
+
+- name: Apply Qdrant StatefulSet
+  ansible.builtin.command:
+    cmd: "{{ kubectl_bin }} apply -f {{ project_dir }}/k8s/qdrant-statefulset.yaml"
+  register: qdrant_ss_result
+  changed_when: "'created' in qdrant_ss_result.stdout or 'configured' in qdrant_ss_result.stdout"
+
+- name: Apply Qdrant Service
+  ansible.builtin.command:
+    cmd: "{{ kubectl_bin }} apply -f {{ project_dir }}/k8s/qdrant-service.yaml"
+
+- name: Apply Backend Deployment (with new image tag)
+  ansible.builtin.shell: |
+    cat {{ project_dir }}/k8s/backend-deployment.yaml \
+      | sed "s|:latest|:{{ image_tag }}|g" \
+      | {{ kubectl_bin }} apply -f -
+  register: backend_result
+  changed_when: "'created' in backend_result.stdout or 'configured' in backend_result.stdout"
+
+- name: Apply Backend Service
+  ansible.builtin.command:
+    cmd: "{{ kubectl_bin }} apply -f {{ project_dir }}/k8s/backend-service.yaml"
+
+- name: Apply Frontend Deployment
+  ansible.builtin.command:
+    cmd: "{{ kubectl_bin }} apply -f {{ project_dir }}/k8s/frontend-deployment.yaml"
+
+- name: Apply Frontend Service
+  ansible.builtin.command:
+    cmd: "{{ kubectl_bin }} apply -f {{ project_dir }}/k8s/frontend-service.yaml"
+
+- name: Apply HPA
+  ansible.builtin.command:
+    cmd: "{{ kubectl_bin }} apply -f {{ project_dir }}/k8s/hpa.yaml"
+
+- name: Wait for backend rollout to complete
+  ansible.builtin.command:
+    cmd: "{{ kubectl_bin }} rollout status deployment/rag-backend -n {{ k8s_namespace }} --timeout=120s"
+  register: rollout_result
+  changed_when: false
+
+- name: Show rollout status
+  ansible.builtin.debug:
+    msg: "{{ rollout_result.stdout }}"
+
+- name: Show pod status
+  ansible.builtin.command:
+    cmd: "{{ kubectl_bin }} get pods -n {{ k8s_namespace }}"
+  register: pod_status
+  changed_when: false
+
+- name: Display pods
+  ansible.builtin.debug:
+    msg: "{{ pod_status.stdout_lines }}"

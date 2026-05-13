@@ -260,6 +260,31 @@ class ClearHistoryResponse(BaseModel):
 
 
 
+class ReindexResponse(BaseModel):
+    """
+    Response for POST /api/v1/ingest/reindex endpoint.
+
+    Example:
+    {
+        "status": "success",
+        "files_received": 10,
+        "files_indexed": 10,
+        "vectors_added": 10,
+        "collection_cleared": true,
+        "processing_time_seconds": 4.52,
+        "errors": []
+    }
+    """
+    status: str = Field(description="'success' or 'partial' or 'error'")
+    files_received: int = Field(description="Total files uploaded in the request")
+    files_indexed: int = Field(description="Files successfully embedded and stored")
+    vectors_added: int = Field(description="Vectors written to Qdrant")
+    collection_cleared: bool = Field(description="Whether the old collection was wiped before re-indexing")
+    processing_time_seconds: float = Field(description="End-to-end pipeline latency in seconds")
+    errors: List[str] = Field(default_factory=list, description="List of per-file errors (empty on full success)")
+    message: Optional[str] = Field(default=None, description="Human-readable summary")
+
+
 # === Error Response Model (Standardized error format) ===
 
 class ErrorResponse(BaseModel):

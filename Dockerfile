@@ -1,5 +1,5 @@
 # Use lightweight Python base image
-FROM python:3.10-slim
+FROM python:3.12-slim
 
 # Environment variables for Python & FastAPI
 # HF_HOME: set to a path inside /app so it's accessible to appuser after chown

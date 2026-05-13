@@ -1,0 +1,52 @@
+---
+# ansible/roles/monitoring/tasks/main.yml
+# Ensures the ELK + Fluent Bit observability stack is running via docker-compose.
+
+- name: Check docker-compose is available
+  ansible.builtin.command:
+    cmd: docker compose version
+  register: compose_check
+  changed_when: false
+  failed_when: compose_check.rc != 0
+
+- name: Start Elasticsearch
+  ansible.builtin.command:
+    cmd: docker compose up -d elasticsearch
+    chdir: "{{ project_dir }}"
+  register: es_result
+  changed_when: "'Started' in es_result.stdout or 'Created' in es_result.stdout"
+
+- name: Wait for Elasticsearch to become healthy
+  ansible.builtin.uri:
+    url: "http://{{ elasticsearch_host }}:{{ elasticsearch_port }}/_cluster/health"
+    status_code: 200
+    timeout: 10
+  register: es_health
+  retries: 12
+  delay: 10
+  until: es_health.status == 200
+
+- name: Start Kibana
+  ansible.builtin.command:
+    cmd: docker compose up -d kibana
+    chdir: "{{ project_dir }}"
+  register: kibana_result
+  changed_when: "'Started' in kibana_result.stdout or 'Created' in kibana_result.stdout"
+
+- name: Start Fluent Bit
+  ansible.builtin.command:
+    cmd: docker compose up -d fluent-bit
+    chdir: "{{ project_dir }}"
+  register: fluentbit_result
+  changed_when: "'Started' in fluentbit_result.stdout or 'Created' in fluentbit_result.stdout"
+
+- name: Show monitoring stack status
+  ansible.builtin.command:
+    cmd: docker compose ps elasticsearch kibana fluent-bit
+    chdir: "{{ project_dir }}"
+  register: stack_status
+  changed_when: false
+
+- name: Display stack status
+  ansible.builtin.debug:
+    msg: "{{ stack_status.stdout_lines }}"

@@ -1,0 +1,40 @@
+---
+# ansible/roles/rag_app/tasks/main.yml
+# Application-level tasks: verify health and demonstrate re-indexing.
+
+- name: Wait for RAG API to be healthy
+  ansible.builtin.uri:
+    url: "{{ api_health_endpoint }}"
+    status_code: 200
+    timeout: 10
+  register: health_check
+  retries: 10
+  delay: 15
+  until: health_check.status == 200
+
+- name: Confirm API is healthy
+  ansible.builtin.debug:
+    msg: "✅ RAG API is healthy: {{ health_check.json }}"
+
+- name: Check readiness probe
+  ansible.builtin.uri:
+    url: "{{ api_base_url }}/ready"
+    status_code: [200, 503]
+    timeout: 10
+  register: ready_check
+
+- name: Show readiness status
+  ansible.builtin.debug:
+    msg: "Readiness: {{ ready_check.json }}"
+
+- name: Check vector store stats
+  ansible.builtin.uri:
+    url: "{{ api_base_url }}/api/v1/stats"
+    method: GET
+    status_code: [200, 500]
+    timeout: 15
+  register: stats_result
+
+- name: Show collection stats
+  ansible.builtin.debug:
+    msg: "📊 Vector store: {{ stats_result.json | default('N/A') }}"

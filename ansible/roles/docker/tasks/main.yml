@@ -1,0 +1,30 @@
+---
+# ansible/roles/docker/tasks/main.yml
+# Pulls the latest RAG Docker images and prunes stale ones.
+
+- name: Log in to DockerHub
+  community.docker.docker_login:
+    username: "{{ dockerhub_username }}"
+    password: "{{ vault_dockerhub_password }}"
+  no_log: true    # never print the password to logs
+
+- name: Pull backend image
+  community.docker.docker_image:
+    name: "{{ backend_image }}"
+    tag: "{{ image_tag }}"
+    source: pull
+    force_source: true
+
+- name: Pull frontend image
+  community.docker.docker_image:
+    name: "{{ frontend_image }}"
+    tag: "{{ image_tag }}"
+    source: pull
+    force_source: true
+  ignore_errors: true    # frontend image may not exist in early stages
+
+- name: Remove dangling Docker images
+  community.docker.docker_prune:
+    images: true
+    images_filters:
+      dangling: true

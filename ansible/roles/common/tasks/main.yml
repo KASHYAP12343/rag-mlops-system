@@ -1,0 +1,30 @@
+---
+# ansible/roles/common/tasks/main.yml
+# Ensures basic system tools are present on the target host.
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  become: true
+
+- name: Install common system packages
+  ansible.builtin.apt:
+    name:
+      - curl
+      - git
+      - python3
+      - python3-pip
+      - python3-venv
+      - ca-certificates
+      - gnupg
+      - lsb-release
+    state: present
+  become: true
+
+- name: Ensure /usr/local/bin is in PATH
+  ansible.builtin.lineinfile:
+    path: /etc/environment
+    regexp: '^PATH='
+    line: 'PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"'
+  become: true

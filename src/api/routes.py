@@ -18,7 +18,7 @@ from src.api.models import (
     IngestRequest, IngestResponse,
     HealthResponse, StatsResponse, ResetRequest, ResetResponse, ErrorResponse,
     AdvancedQueryRequest, AdvancedQueryResponse, AdvancedQueryDebugResponse,
-    ClearHistoryResponse,
+    ClearHistoryResponse, ReindexResponse,
 )
 from src.api.dependencies import (
     get_embedding_model_dep, get_qdrant_client_dep, get_groq_client_dep,
@@ -106,6 +106,93 @@ async def ingest_file(
     except Exception as e:
         logger.error(f"❌ Ingestion failed for {file.filename}: {e}")
         raise HTTPException(status_code=500, detail=f"Ingestion error: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# Automated Re-indexing Endpoint  (Innovation Feature)
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/ingest/reindex",
+    response_model=ReindexResponse,
+    summary="Bulk re-index: clear collection and rebuild from uploaded documents",
+    description=(
+        "Upload one or more .txt files. The existing Qdrant collection is **cleared** "
+        "and all documents are re-embedded and re-uploaded. This enables live knowledge "
+        "base updates without restarting the server."
+    ),
+    tags=["Ingestion"],
+)
+async def reindex_documents(
+    files: List[UploadFile] = File(..., description="One or more .txt files to re-index"),
+    qdrant_client: QdrantClient = Depends(get_qdrant_client_dep),
+    embedding_model: SentenceTransformer = Depends(get_embedding_model_dep),
+):
+    """
+    Automated re-indexing pipeline (MLOps innovation feature).
+
+    Workflow:
+        1. Read and decode all uploaded .txt files
+        2. Delete the current Qdrant collection (full rebuild)
+        3. Generate fresh embeddings using the live embedding model
+        4. Upload all new vectors to Qdrant
+        5. Return a detailed pipeline report
+    """
+    from src.ingestion.reindex import run_reindex
+
+    logger.info("🔄 Re-index request received | file_count={}", len(files))
+
+    # ── Read uploaded files ──────────────────────────────────────────────
+    file_contents: List[tuple] = []
+    read_errors: List[str] = []
+
+    for upload in files:
+        try:
+            raw = await upload.read()
+            text = raw.decode("utf-8")
+            file_contents.append((upload.filename, text))
+        except Exception as e:
+            msg = f"Failed to read '{upload.filename}': {e}"
+            logger.warning(msg)
+            read_errors.append(msg)
+
+    if not file_contents:
+        raise HTTPException(
+            status_code=400,
+            detail="No files could be read. Ensure you upload valid UTF-8 .txt files.",
+        )
+
+    # ── Run the pipeline ─────────────────────────────────────────────────
+    try:
+        result = run_reindex(
+            files=file_contents,
+            qdrant_client=qdrant_client,
+            embedding_model=embedding_model,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        logger.error("❌ Re-index pipeline failed: {}", str(e))
+        raise HTTPException(status_code=500, detail=f"Re-index error: {str(e)}")
+
+    all_errors = read_errors + result.get("errors", [])
+    status = "success" if not all_errors else "partial"
+
+    return ReindexResponse(
+        status=status,
+        files_received=result["files_received"],
+        files_indexed=result["files_indexed"],
+        vectors_added=result["vectors_added"],
+        collection_cleared=result["collection_cleared"],
+        processing_time_seconds=result["processing_time_seconds"],
+        errors=all_errors,
+        message=(
+            f"Re-indexed {result['files_indexed']} documents successfully."
+            if not all_errors
+            else f"Re-indexed {result['files_indexed']} documents with {len(all_errors)} error(s)."
+        ),
+    )
+
 
 
 @router.get("/health", response_model=HealthResponse)

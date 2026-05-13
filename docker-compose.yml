@@ -1,4 +1,8 @@
 services:
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Qdrant Vector Database
+  # ─────────────────────────────────────────────────────────────────────────────
   qdrant:
     image: qdrant/qdrant:latest
     container_name: rag-qdrant
@@ -9,11 +13,20 @@ services:
       - qdrant_storage:/qdrant/storage
     networks:
       - rag-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/readyz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     deploy:
       resources:
         limits:
           memory: 2G
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # FastAPI RAG Backend
+  # ─────────────────────────────────────────────────────────────────────────────
   api:
     build: .
     container_name: rag-api
@@ -27,17 +40,27 @@ services:
       - QDRANT_PORT=6333
     depends_on:
       qdrant:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - ./logs:/app/logs
       - ./data:/app/data
     networks:
       - rag-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     deploy:
       resources:
         limits:
           memory: 4G
-  
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Jenkins CI/CD Server
+  # docker socket mounted → Jenkins can run docker build/push from pipelines
+  # ─────────────────────────────────────────────────────────────────────────────
   jenkins:
     build:
       context: .
@@ -46,18 +69,101 @@ services:
     ports:
       - "8080:8080"
       - "50000:50000"
-
     volumes:
       - jenkins_home:/var/jenkins_home
-
+      - /var/run/docker.sock:/var/run/docker.sock   # Docker-in-Docker (lite)
+      - .:/workspace                                  # mount repo for pipelines
+      - /home/mayank/.vault_pass:/var/jenkins_home/.vault_pass:ro  # Ansible Vault password
     networks:
       - rag-network
+    environment:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Elasticsearch — Log Storage
+  # ─────────────────────────────────────────────────────────────────────────────
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    container_name: rag-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false        # disabled for dev/demo
+      - xpack.security.http.ssl.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m     # constrain heap for local dev
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    networks:
+      - rag-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Kibana — Log Visualization Dashboard
+  # ─────────────────────────────────────────────────────────────────────────────
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.0
+    container_name: rag-kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - XPACK_SECURITY_ENABLED=false
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - rag-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5601/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Fluent Bit — Log Forwarding Agent
+  # Tails FastAPI JSON logs → Elasticsearch
+  # ─────────────────────────────────────────────────────────────────────────────
+  fluent-bit:
+    build:
+      context: ./fluent-bit
+      dockerfile: Dockerfile
+    container_name: rag-fluent-bit
+    volumes:
+      - ./logs:/logs:ro       # read-only access to FastAPI log files
+    networks:
+      - rag-network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    ports:
+      - "2020:2020"           # Fluent Bit HTTP metrics endpoint
+    restart: unless-stopped
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Volumes
+# ─────────────────────────────────────────────────────────────────────────────
 volumes:
   qdrant_storage:
   qdrant_data:
   jenkins_home:
+  es_data:
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Networks
+# ─────────────────────────────────────────────────────────────────────────────
 networks:
   rag-network:
     driver: bridge

@@ -1,0 +1,30 @@
+---
+# ansible/group_vars/all/vars.yml
+# Public (non-secret) variables shared across all roles.
+# Secrets are in vault.yml (Ansible Vault encrypted).
+
+# ── Project Identity ─────────────────────────────────────────────────────────
+project_name: rag-mlops
+k8s_namespace: rag-system
+
+# ── Docker Image Tags ─────────────────────────────────────────────────────────
+dockerhub_username: mayank2101
+backend_image: "{{ dockerhub_username }}/rag-mlops"
+frontend_image: "{{ dockerhub_username }}/rag-mlops-frontend"
+image_tag: latest
+
+# ── Project Path ─────────────────────────────────────────────────────────────
+project_dir: /media/mayank/Data/SPE_MLOPS/Project
+
+# ── Kubernetes Settings ───────────────────────────────────────────────────────
+kubectl_bin: kubectl
+minikube_bin: minikube
+
+# ── Monitoring ────────────────────────────────────────────────────────────────
+elasticsearch_host: localhost
+elasticsearch_port: 9200
+kibana_port: 5601
+
+# ── API Health Check ──────────────────────────────────────────────────────────
+api_base_url: "http://localhost:8000"
+api_health_endpoint: "{{ api_base_url }}/health"

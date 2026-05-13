@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rag-config
+  namespace: rag-system
+  labels:
+    app: rag-api
+    project: rag-mlops
+data:
+  EMBEDDING_MODEL: "BAAI/bge-base-en-v1.5"
+  LLM_MODEL: "llama-3.1-8b-instant"
+  QDRANT_HOST: "qdrant-service"
+  QDRANT_PORT: "6333"
+  COLLECTION_NAME: "laptop_troubleshooting"
+  DATA_DIR: "./data/processed"
+  PROCESSED_DIR: "./data/processed"
+  TOP_K: "5"
+  SCORE_THRESHOLD: "0.7"
+  LLM_TEMPERATURE: "0.1"
+  LLM_MAX_TOKENS: "1024"
+  LOG_LEVEL: "INFO"
+  LOG_FILE: "./logs/app.log"
