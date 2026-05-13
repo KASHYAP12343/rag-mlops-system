@@ -12,3 +12,4 @@ loguru
 pydantic-settings
 python-multipart
 anyio[asyncio]
+tqdm

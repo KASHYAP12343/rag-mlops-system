@@ -20,10 +20,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Pre-download the embedding model into the image during build.
-# This runs as root so the download goes to HF_HOME=/app/.cache/huggingface.
-# The single uvicorn worker will find the model already cached on startup.
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-base-en-v1.5')"
+# ── REMOVED: model pre-download ──────────────────────────────────────────────
+# Previously this line added ~20 min to EVERY rebuild:
+#   RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-base-en-v1.5')"
+#
+# Now the model downloads ONCE on first container startup into the
+# 'hf_cache' Docker volume (see docker-compose.yml).
+# Rebuilds are instant. Restarts are instant after the first run.
+# ─────────────────────────────────────────────────────────────────────────────
 
 # Create non-root user and give it ownership of the entire /app dir
 # (including the downloaded model cache)

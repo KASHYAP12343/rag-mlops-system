@@ -14,11 +14,13 @@ services:
     networks:
       - rag-network
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:6333/readyz | grep -q 'are ready' || exit 1"]
+      # bash /dev/tcp: works without curl/wget — qdrant image has bash but no HTTP clients
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/6333 2>/dev/null && echo ok >&3' 2>/dev/null"]
       interval: 30s
       timeout: 10s
-      retries: 3
+      retries: 5
       start_period: 30s
+    restart: unless-stopped
     deploy:
       resources:
         limits:
@@ -40,10 +42,11 @@ services:
       - QDRANT_PORT=6333
     depends_on:
       qdrant:
-        condition: service_healthy
+        condition: service_started   # relaxed: don't block on healthcheck — API retries Qdrant internally
     volumes:
       - ./logs:/app/logs
       - ./data:/app/data
+      - hf_cache:/app/.cache/huggingface   # ADDED: model persists across rebuilds — downloads only once
     networks:
       - rag-network
     healthcheck:
@@ -123,6 +126,7 @@ services:
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
       - XPACK_SECURITY_ENABLED=false
+      - NODE_OPTIONS=--max-old-space-size=1024   # FIXED: prevent Node.js heap OOM (exit code 134)
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -133,11 +137,11 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 120s
+      start_period: 180s   # INCREASED: Kibana needs 2-3 min to fully load plugins
     deploy:
       resources:
         limits:
-          memory: 512M   # ADDED: Kibana had no limit — 512M is enough for dashboards
+          memory: 1.5G   # INCREASED from 512M: Kibana 8.x Node.js needs ≥1.2G to avoid OOM crash
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Fluent Bit — Log Forwarding Agent
@@ -167,6 +171,7 @@ volumes:
   qdrant_storage:
   jenkins_home:
   es_data:
+  hf_cache:     # ADDED: persists the HuggingFace model cache — survives docker-compose down/up
   # REMOVED: qdrant_data — this volume was declared but never mounted anywhere
 
 
