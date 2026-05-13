@@ -29,9 +29,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Rebuilds are instant. Restarts are instant after the first run.
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Create non-root user and give it ownership of the entire /app dir
-# (including the downloaded model cache)
-RUN useradd -m appuser && chown -R appuser:appuser /app
+# Create non-root user, pre-create the HuggingFace cache dir with correct
+# ownership BEFORE the volume is mounted — this ensures Docker doesn't create
+# the volume directory as root on first run.
+RUN useradd -m appuser \
+    && mkdir -p /app/.cache/huggingface/hub \
+    && chown -R appuser:appuser /app
 
 # Switch to non-root user
 USER appuser

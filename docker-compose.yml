@@ -58,7 +58,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2G   # CHANGED: was 4G — 2G is enough with 1 worker and bge-base model
+          memory: 3.5G   # INCREASED: bge-base-en-v1.5 (~440MB) + bge-reranker-base (~1.1GB) + Python overhead needs ~2.5GB
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Jenkins CI/CD Server
