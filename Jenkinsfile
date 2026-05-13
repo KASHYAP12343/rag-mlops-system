@@ -134,11 +134,11 @@ pipeline {
                     sh '''
                     echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
 
-                    // Push backend image
+                    # Push backend image
                     docker push ${DOCKERHUB_REPO}:${IMAGE_TAG}
                     docker push ${DOCKERHUB_REPO}:latest
 
-                    // Push frontend image
+                    # Push frontend image
                     docker push ${FRONTEND_REPO}:${IMAGE_TAG}
                     docker push ${FRONTEND_REPO}:latest
 
