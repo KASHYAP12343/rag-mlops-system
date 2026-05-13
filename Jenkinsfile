@@ -61,7 +61,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh '''
-                docker build \
+                DOCKER_BUILDKIT=0 docker build \
                     --build-arg BUILD_NUMBER=${BUILD_NUMBER} \
                     -t ${DOCKERHUB_REPO}:${IMAGE_TAG} \
                     -t ${DOCKERHUB_REPO}:latest \
