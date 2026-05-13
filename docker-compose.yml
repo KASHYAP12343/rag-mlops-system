@@ -14,15 +14,15 @@ services:
     networks:
       - rag-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/readyz"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:6333/readyz | grep -q 'are ready' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 20s
+      start_period: 30s
     deploy:
       resources:
         limits:
-          memory: 2G
+          memory: 512M   # CHANGED: was 2G — 512M is enough for demo with small collection
 
   # ─────────────────────────────────────────────────────────────────────────────
   # FastAPI RAG Backend
@@ -55,7 +55,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 4G
+          memory: 2G   # CHANGED: was 4G — 2G is enough with 1 worker and bge-base model
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Jenkins CI/CD Server
@@ -79,8 +79,10 @@ services:
     environment:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
       - DOCKER_BUILDKIT=1   # Enable BuildKit for faster, cached Docker builds
-    # group_add is intentionally omitted — docker socket access is handled
-    # by the jenkins/Dockerfile which grants root access to /var/run/docker.sock
+    deploy:
+      resources:
+        limits:
+          memory: 1G   # ADDED: Jenkins had no limit — this prevents it eating all RAM
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Elasticsearch — Log Storage
@@ -92,7 +94,7 @@ services:
       - discovery.type=single-node
       - xpack.security.enabled=false        # disabled for dev/demo
       - xpack.security.http.ssl.enabled=false
-      - ES_JAVA_OPTS=-Xms512m -Xmx512m     # constrain heap for local dev
+      - ES_JAVA_OPTS=-Xms256m -Xmx256m     # CHANGED: was 512m/512m — 256m is enough for demo logs
     ports:
       - "9200:9200"
     volumes:
@@ -108,7 +110,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2G
+          memory: 1G   # ADDED: cap the container at 1G so it can't OOM the host
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Kibana — Log Visualization Dashboard
@@ -127,11 +129,15 @@ services:
     networks:
       - rag-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5601/api/status"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:5601/api/status | grep -q 'available' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 90s
+      start_period: 120s
+    deploy:
+      resources:
+        limits:
+          memory: 512M   # ADDED: Kibana had no limit — 512M is enough for dashboards
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Fluent Bit — Log Forwarding Agent
@@ -159,9 +165,9 @@ services:
 # ─────────────────────────────────────────────────────────────────────────────
 volumes:
   qdrant_storage:
-  qdrant_data:
   jenkins_home:
   es_data:
+  # REMOVED: qdrant_data — this volume was declared but never mounted anywhere
 
 
 # ─────────────────────────────────────────────────────────────────────────────

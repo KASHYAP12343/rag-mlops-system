@@ -2,6 +2,12 @@ pipeline {
 
     agent any
 
+    // ── Keep only last 5 builds & 10 days of history to prevent disk bloat ──
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '5', daysToKeepStr: '10', artifactNumToKeepStr: '3'))
+        timestamps()
+    }
+
     environment {
         DOCKERHUB_REPO  = "mayank2101/rag-mlops"
         IMAGE_TAG       = "${env.BUILD_NUMBER}"
@@ -147,6 +153,8 @@ pipeline {
         always {
             // Clean up dangling Docker images to save disk
             sh 'docker image prune -f || true'
+            // Clean workspace to prevent accumulation of build files
+            cleanWs()
         }
     }
 }

@@ -22,8 +22,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Pre-download the embedding model into the image during build.
 # This runs as root so the download goes to HF_HOME=/app/.cache/huggingface.
-# Both uvicorn workers will find the model already cached on startup,
-# eliminating the race condition where two workers download simultaneously.
+# The single uvicorn worker will find the model already cached on startup.
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-base-en-v1.5')"
 
 # Create non-root user and give it ownership of the entire /app dir
@@ -43,5 +42,7 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl --fail http://localhost:8000/health || exit 1
 
-# Run FastAPI with Uvicorn
-CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--log-level", "info"]
+# CHANGE: --workers reduced from 2 → 1
+# With 8 GB total, running 2 workers doubles the RAM used by the model (~900 MB each).
+# 1 worker is sufficient for a demo/local environment.
+CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--log-level", "info"]
