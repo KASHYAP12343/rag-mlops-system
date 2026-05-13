@@ -44,7 +44,6 @@ aiofiles==23.2.0
 
 python-json-logger==4.1.0
 
-pytest==8.1.1
 httpx==0.27.0
 aiofiles==23.2.0
 aiohappyeyeballs==2.6.1
@@ -105,7 +104,6 @@ pydantic==2.7.1
 pydantic-settings==2.2.1
 pydantic_core==2.18.2
 Pygments==2.20.0
-pytest==9.0.3
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
 python-json-logger==4.1.0
