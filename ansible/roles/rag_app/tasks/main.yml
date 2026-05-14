@@ -3,69 +3,45 @@
 # Application-level tasks: verify health and demonstrate re-indexing.
 #
 # The Jenkins container cannot reach the ClusterIP service directly.
-# We use `kubectl port-forward` to tunnel pod:8000 → localhost:18000
-# for the duration of the health check, then tear it down.
+# We use `kubectl exec` to run curl inside the pod — no port-forward needed.
 
-- name: Start kubectl port-forward to backend pod (background)
-  ansible.builtin.shell: |
-    # Kill any leftover port-forward on 18000 from a previous run
-    pkill -f "port-forward.*18000" || true
-    sleep 1
-    nohup kubectl port-forward \
-      svc/rag-api-service \
-      18000:8000 \
-      -n {{ k8s_namespace }} \
-      --kubeconfig {{ lookup('env', 'KUBECONFIG') | default('/var/jenkins_home/.kube/config') }} \
-      > /tmp/pf-rag-api.log 2>&1 &
-    echo $!
-  register: pf_pid
-  changed_when: false
-
-- name: Wait for port-forward to be ready
-  ansible.builtin.wait_for:
-    host: localhost
-    port: 18000
-    timeout: 30
-    state: started
-
-- name: Wait for RAG API to be healthy (via port-forward)
-  ansible.builtin.uri:
-    url: "http://localhost:18000/health"
-    status_code: 200
-    timeout: 10
+- name: Wait for RAG API to be healthy (via kubectl exec inside pod)
+  ansible.builtin.command: >
+    {{ kubectl_bin }} exec -n {{ k8s_namespace }}
+    deployment/rag-backend
+    -- curl -sf http://localhost:8000/health
   register: health_check
   retries: 10
   delay: 15
-  until: health_check.status == 200
+  until: health_check.rc == 0
+  changed_when: false
 
 - name: Confirm API is healthy
   ansible.builtin.debug:
-    msg: "✅ RAG API is healthy: {{ health_check.json }}"
+    msg: "✅ RAG API is healthy: {{ health_check.stdout }}"
 
-- name: Check readiness probe
-  ansible.builtin.uri:
-    url: "http://localhost:18000/ready"
-    status_code: [200, 503]
-    timeout: 10
+- name: Check readiness probe (via kubectl exec)
+  ansible.builtin.command: >
+    {{ kubectl_bin }} exec -n {{ k8s_namespace }}
+    deployment/rag-backend
+    -- curl -sf http://localhost:8000/ready
   register: ready_check
+  failed_when: false
+  changed_when: false
 
 - name: Show readiness status
   ansible.builtin.debug:
-    msg: "Readiness: {{ ready_check.json }}"
+    msg: "Readiness: {{ ready_check.stdout }}"
 
-- name: Check vector store stats
-  ansible.builtin.uri:
-    url: "http://localhost:18000/api/v1/stats"
-    method: GET
-    status_code: [200, 500]
-    timeout: 15
+- name: Check vector store stats (via kubectl exec)
+  ansible.builtin.command: >
+    {{ kubectl_bin }} exec -n {{ k8s_namespace }}
+    deployment/rag-backend
+    -- curl -sf http://localhost:8000/api/v1/stats
   register: stats_result
+  failed_when: false
+  changed_when: false
 
 - name: Show collection stats
   ansible.builtin.debug:
-    msg: "📊 Vector store: {{ stats_result.json | default('N/A') }}"
-
-- name: Stop kubectl port-forward
-  ansible.builtin.shell: |
-    pkill -f "port-forward.*18000" || true
-  changed_when: false
+    msg: "📊 Vector store: {{ stats_result.stdout | default('N/A') }}"
