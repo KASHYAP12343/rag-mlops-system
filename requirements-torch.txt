@@ -1,0 +1,4 @@
+# requirements-torch.txt
+# Installed SEPARATELY so Docker caches the ~700MB torch layer independently.
+# This prevents re-uploading 700MB to DockerHub on every code change.
+torch==2.3.1+cpu

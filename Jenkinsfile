@@ -6,6 +6,9 @@ pipeline {
     options {
         buildDiscarder(logRotator(numToKeepStr: '5', daysToKeepStr: '10', artifactNumToKeepStr: '3'))
         timestamps()
+        // Kill the entire pipeline if it runs longer than 45 minutes —
+        // prevents a stuck docker push from blocking Jenkins indefinitely
+        timeout(time: 45, unit: 'MINUTES')
     }
 
     environment {
@@ -131,6 +134,10 @@ pipeline {
         // Requires Jenkins credential ID: dockerhub-credentials
         // ─────────────────────────────────────────────────────────────
         stage('Push to DockerHub') {
+            // Retry up to 3 times — large torch/model layers can time out on
+            // slow or congested networks. Each retry resumes from where it left off
+            // because Docker reuses already-uploaded layers.
+            options { retry(3) }
             steps {
                 withCredentials([
                     usernamePassword(
@@ -142,13 +149,26 @@ pipeline {
                     sh '''
                     echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
 
-                    # Push backend image
-                    docker push ${DOCKERHUB_REPO}:${IMAGE_TAG}
-                    docker push ${DOCKERHUB_REPO}:latest
+                    # Push backend image with a retry helper function
+                    # (belt-and-suspenders alongside the stage-level retry above)
+                    push_with_retry() {
+                        local image=$1
+                        local max=3
+                        local attempt=1
+                        until docker push "$image" || [ $attempt -ge $max ]; do
+                            echo "Push failed for $image — retry $attempt/$max in 15s..."
+                            attempt=$((attempt + 1))
+                            sleep 15
+                        done
+                        docker push "$image"
+                    }
+
+                    push_with_retry ${DOCKERHUB_REPO}:${IMAGE_TAG}
+                    push_with_retry ${DOCKERHUB_REPO}:latest
 
                     # Push frontend image
-                    docker push ${FRONTEND_REPO}:${IMAGE_TAG}
-                    docker push ${FRONTEND_REPO}:latest
+                    push_with_retry ${FRONTEND_REPO}:${IMAGE_TAG}
+                    push_with_retry ${FRONTEND_REPO}:latest
 
                     docker logout
                     '''

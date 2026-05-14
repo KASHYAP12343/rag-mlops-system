@@ -1,40 +1,26 @@
-# requirements.txt
-# Direct production dependencies only
-# Python 3.12, PyTorch 2.3.1 CPU, FastAPI 0.111
-#
-# CHANGES FROM ORIGINAL:
-#   - REMOVED torchvision  (computer vision library — not needed for text RAG)
-#   - REMOVED torchaudio   (audio library — not needed for text RAG)
-#   - REMOVED datasets     (HuggingFace datasets — only used in scripts, not in API)
-# These 3 removals save ~1.6 GB from your Docker image build.
-
-# === PyTorch Ecosystem (CPU-Only, text only) ===
--f https://download.pytorch.org/whl/torch_stable.html
-torch==2.3.1+cpu
-
-# === Transformers & Embeddings ===
+# requirements.txt — all deps EXCEPT torch (torch is in requirements-torch.txt)
 sentence-transformers==3.0.1
 transformers==4.41.2
 tokenizers==0.19.1
 safetensors==0.4.3
 huggingface-hub==0.23.4
 
-# === Vector Database ===
+# Vector Database
 qdrant-client==1.9.1
 grpcio==1.62.1
 
-# === API Framework ===
+# API Framework
 fastapi==0.111.0
 uvicorn[standard]==0.29.0
 pydantic==2.7.1
 pydantic-settings==2.2.1
-python-multipart==0.0.9
+python-multipart==0.0.27
 
-# === LLM Client ===
+# LLM Client
 groq==0.9.0
 httpx==0.27.0
 
-# === Utilities ===
+# Utilities
 python-dotenv==1.0.1
 loguru==0.7.2
 tqdm==4.66.4
