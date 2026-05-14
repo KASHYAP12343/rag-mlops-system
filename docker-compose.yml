@@ -188,3 +188,4 @@ networks:
     driver: bridge
   minikube:
     external: true
+    name: minikube   # explicit name: must pre-exist (created by: minikube start)
