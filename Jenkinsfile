@@ -69,8 +69,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh '''
-                DOCKER_BUILDKIT=0 docker build \
-                    --build-arg BUILD_NUMBER=${BUILD_NUMBER} \
+                DOCKER_BUILDKIT=1 docker build \
                     -t ${DOCKERHUB_REPO}:${IMAGE_TAG} \
                     -t ${DOCKERHUB_REPO}:latest \
                     .
@@ -85,8 +84,7 @@ pipeline {
         stage('Build Frontend Image') {
             steps {
                 sh '''
-                DOCKER_BUILDKIT=0 docker build \
-                    -t ${FRONTEND_REPO}:${IMAGE_TAG} \
+                DOCKER_BUILDKIT=1 docker build \
                     -t ${FRONTEND_REPO}:latest \
                     ./frontend
                 '''
@@ -190,4 +188,4 @@ pipeline {
             cleanWs()
         }
     }
-}
+}               

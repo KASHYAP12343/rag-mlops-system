@@ -60,7 +60,10 @@
 
 - name: Wait for backend rollout to complete
   ansible.builtin.command:
-    cmd: "{{ kubectl_bin }} rollout status deployment/rag-backend -n {{ k8s_namespace }} --timeout=120s"
+    cmd: "{{ kubectl_bin }} rollout status deployment/rag-backend -n {{ k8s_namespace }} --timeout=300s"
+  # 300s (5 min) covers: image pull + model load from baked layer (~30s) × 2 pods
+  # If Dockerfile model pre-download is present, rollout finishes in ~60s.
+  # 300s is the safety net for slow networks or cold image pulls.
   register: rollout_result
   changed_when: false
 

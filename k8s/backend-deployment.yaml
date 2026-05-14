@@ -54,19 +54,19 @@ spec:
             httpGet:
               path: /health
               port: 8000
-            initialDelaySeconds: 40
+            initialDelaySeconds: 120   # was 40 — model loads in ~30s, give headroom
             periodSeconds: 30
             timeoutSeconds: 10
-            failureThreshold: 3
+            failureThreshold: 5        # was 3 — more tolerance before restart
           # ── Readiness probe — stop traffic if dependencies are down ───────
           readinessProbe:
             httpGet:
               path: /ready
               port: 8000
-            initialDelaySeconds: 45
-            periodSeconds: 15
+            initialDelaySeconds: 120   # was 45 — wait for model load + Qdrant connect
+            periodSeconds: 20          # was 15 — slightly less aggressive
             timeoutSeconds: 10
-            failureThreshold: 3
+            failureThreshold: 6        # was 3 — 6×20s = 2 min grace after initial delay
           # ── Log volume ────────────────────────────────────────────────────
           volumeMounts:
             - name: log-volume
