@@ -201,6 +201,39 @@ pipeline {
                 sh '''
                 . venv/bin/activate
                 export KUBECONFIG=/var/jenkins_home/.kube/config
+
+                # ── Validate kubeconfig exists ────────────────────────────────
+                if [ ! -f "$KUBECONFIG" ]; then
+                    echo "❌ ERROR: kubeconfig not found at $KUBECONFIG"
+                    echo ""
+                    echo "   Fix: Run this on your HOST machine (not inside Docker):"
+                    echo "     ./start.sh"
+                    echo ""
+                    echo "   start.sh will:"
+                    echo "     1. Start Minikube"
+                    echo "     2. Patch the kubeconfig IP for Docker networking"
+                    echo "     3. Inject it into the Jenkins volume"
+                    echo "     4. Then start docker-compose"
+                    exit 1
+                fi
+
+                # ── Validate Kubernetes cluster is reachable ──────────────────
+                echo "=== Checking Kubernetes cluster connectivity ==="
+                if ! kubectl cluster-info --request-timeout=10s 2>&1; then
+                    echo ""
+                    echo "❌ ERROR: kubectl cannot reach the cluster."
+                    echo "   The stored kubeconfig points to an unreachable server."
+                    echo ""
+                    echo "   Fix: Re-run start.sh on the HOST to refresh the kubeconfig:"
+                    echo "     docker-compose down && ./start.sh"
+                    echo ""
+                    echo "   This patches the Minikube IP to the Docker gateway IP"
+                    echo "   so Jenkins can reach Minikube from inside Docker."
+                    exit 1
+                fi
+                echo "✅ Cluster is reachable."
+
+                # ── Run Ansible deployment ────────────────────────────────────
                 echo "Triggering Ansible deployment for image tag: ${IMAGE_TAG}"
                 ansible-playbook ansible/deploy.yml \
                     -i ansible/inventory/hosts.yml \

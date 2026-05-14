@@ -8,7 +8,7 @@ metadata:
     version: "1.0"
     project: rag-mlops
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: rag-api
