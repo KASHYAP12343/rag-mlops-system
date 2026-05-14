@@ -6,9 +6,10 @@ pipeline {
     options {
         buildDiscarder(logRotator(numToKeepStr: '5', daysToKeepStr: '10', artifactNumToKeepStr: '3'))
         timestamps()
-        // Kill the entire pipeline if it runs longer than 45 minutes —
-        // prevents a stuck docker push from blocking Jenkins indefinitely
-        timeout(time: 45, unit: 'MINUTES')
+        // Kill the entire pipeline if it runs longer than 90 minutes —
+        // First-time full push (cold DockerHub layer cache) can take ~60 min.
+        // Subsequent builds are fast (1-2 min) as layers are cached on DockerHub.
+        timeout(time: 90, unit: 'MINUTES')
     }
 
     environment {
@@ -73,6 +74,12 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh '''
+                # Prune dangling (untagged) images to free disk before building
+                docker image prune -f || true
+
+                echo "=== Disk space before backend build ==="
+                df -h /
+
                 DOCKER_BUILDKIT=0 docker build \
                     --build-arg BUILD_NUMBER=${BUILD_NUMBER} \
                     -t ${DOCKERHUB_REPO}:${IMAGE_TAG} \
@@ -149,18 +156,25 @@ pipeline {
                     sh '''
                     echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
 
-                    # Push backend image with a retry helper function
-                    # (belt-and-suspenders alongside the stage-level retry above)
+                    # Push with retry — retries only on failure, does NOT push again
+                    # on success (fixed bug: old version called docker push unconditionally
+                    # after the loop even when the loop had already succeeded).
                     push_with_retry() {
                         local image=$1
                         local max=3
                         local attempt=1
-                        until docker push "$image" || [ $attempt -ge $max ]; do
-                            echo "Push failed for $image — retry $attempt/$max in 15s..."
+                        while [ $attempt -le $max ]; do
+                            echo "Pushing $image (attempt $attempt/$max)..."
+                            if docker push "$image"; then
+                                echo "✅ Push succeeded for $image"
+                                return 0
+                            fi
+                            echo "⚠️  Push failed for $image — retry $attempt/$max in 15s..."
                             attempt=$((attempt + 1))
                             sleep 15
                         done
-                        docker push "$image"
+                        echo "❌ Push failed after $max attempts for $image"
+                        return 1
                     }
 
                     push_with_retry ${DOCKERHUB_REPO}:${IMAGE_TAG}
