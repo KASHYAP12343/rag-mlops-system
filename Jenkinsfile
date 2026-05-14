@@ -50,7 +50,8 @@ pipeline {
             steps {
                 sh '''
                 . venv/bin/activate
-                pytest -v --tb=short
+                mkdir -p test-results
+                pytest -v --tb=short --junitxml=test-results/results.xml
                 '''
             }
             post {
@@ -69,7 +70,8 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh '''
-                DOCKER_BUILDKIT=1 docker build \
+                DOCKER_BUILDKIT=0 docker build \
+                    --build-arg BUILD_NUMBER=${BUILD_NUMBER} \
                     -t ${DOCKERHUB_REPO}:${IMAGE_TAG} \
                     -t ${DOCKERHUB_REPO}:latest \
                     .
@@ -84,7 +86,8 @@ pipeline {
         stage('Build Frontend Image') {
             steps {
                 sh '''
-                DOCKER_BUILDKIT=1 docker build \
+                DOCKER_BUILDKIT=0 docker build \
+                    -t ${FRONTEND_REPO}:${IMAGE_TAG} \
                     -t ${FRONTEND_REPO}:latest \
                     ./frontend
                 '''
@@ -188,4 +191,4 @@ pipeline {
             cleanWs()
         }
     }
-}               
+}
