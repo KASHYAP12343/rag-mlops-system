@@ -49,24 +49,35 @@ spec:
                 secretKeyRef:
                   name: rag-secrets
                   key: GROQ_API_KEY
+          # ── Startup probe — gate liveness/readiness until app is ready ────
+          # Allows up to 5 min (30 × 10s) for model loading before K8s
+          # starts liveness/readiness checks. Prevents false-positive restarts.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30    # start checking after 30s
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 30       # 30 × 10s = 5 min max startup window
           # ── Liveness probe — restart if API becomes unresponsive ──────────
           livenessProbe:
             httpGet:
               path: /health
               port: 8000
-            initialDelaySeconds: 120   # was 40 — model loads in ~30s, give headroom
+            initialDelaySeconds: 10    # startupProbe gates this; short delay is fine
             periodSeconds: 30
             timeoutSeconds: 10
-            failureThreshold: 5        # was 3 — more tolerance before restart
+            failureThreshold: 3
           # ── Readiness probe — stop traffic if dependencies are down ───────
           readinessProbe:
             httpGet:
               path: /ready
               port: 8000
-            initialDelaySeconds: 120   # was 45 — wait for model load + Qdrant connect
-            periodSeconds: 20          # was 15 — slightly less aggressive
+            initialDelaySeconds: 10    # startupProbe gates this too
+            periodSeconds: 15
             timeoutSeconds: 10
-            failureThreshold: 6        # was 3 — 6×20s = 2 min grace after initial delay
+            failureThreshold: 4        # 4×15s = 60s grace after startup
           # ── Log volume ────────────────────────────────────────────────────
           volumeMounts:
             - name: log-volume
