@@ -1,10 +1,36 @@
 ---
 # ansible/roles/rag_app/tasks/main.yml
 # Application-level tasks: verify health and demonstrate re-indexing.
+#
+# The Jenkins container cannot reach the ClusterIP service directly.
+# We use `kubectl port-forward` to tunnel pod:8000 → localhost:18000
+# for the duration of the health check, then tear it down.
 
-- name: Wait for RAG API to be healthy
+- name: Start kubectl port-forward to backend pod (background)
+  ansible.builtin.shell: |
+    # Kill any leftover port-forward on 18000 from a previous run
+    pkill -f "port-forward.*18000" || true
+    sleep 1
+    nohup kubectl port-forward \
+      svc/rag-api-service \
+      18000:8000 \
+      -n {{ k8s_namespace }} \
+      --kubeconfig {{ lookup('env', 'KUBECONFIG') | default('/var/jenkins_home/.kube/config') }} \
+      > /tmp/pf-rag-api.log 2>&1 &
+    echo $!
+  register: pf_pid
+  changed_when: false
+
+- name: Wait for port-forward to be ready
+  ansible.builtin.wait_for:
+    host: localhost
+    port: 18000
+    timeout: 30
+    state: started
+
+- name: Wait for RAG API to be healthy (via port-forward)
   ansible.builtin.uri:
-    url: "{{ api_health_endpoint }}"
+    url: "http://localhost:18000/health"
     status_code: 200
     timeout: 10
   register: health_check
@@ -18,7 +44,7 @@
 
 - name: Check readiness probe
   ansible.builtin.uri:
-    url: "{{ api_base_url }}/ready"
+    url: "http://localhost:18000/ready"
     status_code: [200, 503]
     timeout: 10
   register: ready_check
@@ -29,7 +55,7 @@
 
 - name: Check vector store stats
   ansible.builtin.uri:
-    url: "{{ api_base_url }}/api/v1/stats"
+    url: "http://localhost:18000/api/v1/stats"
     method: GET
     status_code: [200, 500]
     timeout: 15
@@ -38,3 +64,8 @@
 - name: Show collection stats
   ansible.builtin.debug:
     msg: "📊 Vector store: {{ stats_result.json | default('N/A') }}"
+
+- name: Stop kubectl port-forward
+  ansible.builtin.shell: |
+    pkill -f "port-forward.*18000" || true
+  changed_when: false
