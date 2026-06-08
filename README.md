@@ -1,3 +1,4 @@
+![Architecture Diagram](./assets/architecture.png)
 <div align="center">
 
 # 🤖 RAG MLOps System
